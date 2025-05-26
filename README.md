@@ -44,7 +44,7 @@ If early interception fails, the plugin falls back to Pretty Links’ native `pr
 | Alanbase             | `sub_id1={clickid}`   |
 | Smartico / TAP       | `afp={clickid}`       |
 | PostAffiliatePro     | `s1={clickid}`        |
-| Affelios             | `customParameter={clickid}` |
+| Affelios             | `clickid={clickid}` |
 | Affise               | `sub1={clickid}`      |
 | Realtime Gaming      | `subGid={clickid}`    |
 | Quintessence         | `anid={clickid}`      |
