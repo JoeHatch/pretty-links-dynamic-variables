@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Plugin constants
-define('PLDV_VERSION', '3.0.0');
+define('PLDV_VERSION', '1.0.0');
 define('PLDV_LOG_FILE', WP_CONTENT_DIR . '/pretty-links-dv.log');
 
 /**
