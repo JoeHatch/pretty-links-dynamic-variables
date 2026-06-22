@@ -5,8 +5,7 @@ Requires at least: 5.8
 Tested up to: 6.6
 Requires PHP: 7.4
 Stable tag: 2.0.0
-License: GPLv2 or later
-License URI: https://www.gnu.org/licenses/gpl-2.0.html
+License: Proprietary (internal/private use only — see LICENSE)
 
 Records every Pretty Link click with full context and injects an encrypted dynamic-variable token into the outbound affiliate URL based on the link's selected software.
 

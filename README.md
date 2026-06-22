@@ -60,9 +60,11 @@ Single-responsibility classes under the `PrettyLinksDV\` namespace in `includes/
 
 ## Status
 
-- **v2.0.0-dev.** P1 (data + redirect core), P2 (capture), and P3 (managed admin) are implemented and tested. P4 (network postback/conversion reconciliation) is planned — see `BUILD-PLAN.md`.
+- **v2.0.0.** P1 (data + redirect core), P2 (capture), and P3 (managed admin) are implemented and tested, with the `sent_value` reconciliation column in place. P4 (network postback/conversion loop) is planned — see `BUILD-PLAN.md`.
 - The legacy single-file plugin `pldv-main.php` is **superseded** and must not be active at the same time as this plugin.
 
 ## License
 
-MIT · [StatsDrone](https://www.statsdrone.com)
+Proprietary — internal/private use only. You may modify and use the code
+internally without sharing it; redistribution requires written permission. See
+[LICENSE](LICENSE). © 2025–2026 [StatsDrone](https://www.statsdrone.com)
