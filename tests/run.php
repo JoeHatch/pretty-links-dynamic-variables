@@ -18,6 +18,7 @@ use PrettyLinksDV\Mappings;
 use PrettyLinksDV\Settings;
 use PrettyLinksDV\DB;
 use PrettyLinksDV\Recorder;
+use PrettyLinksDV\Plugin;
 
 $tests  = [];
 $passed = 0;
@@ -46,6 +47,7 @@ function reset_world(): void {
 	$GLOBALS['wpdb']->links = [];
 	$_GET                   = [];
 	$_SERVER['REMOTE_ADDR'] = '203.0.113.9';
+	unset( $GLOBALS['pldv_test_gmt_offset'], $GLOBALS['pldv_test_now_ts'] );
 }
 
 /** Find a tracked (non-numeric) and a numeric-only platform slug from real data. */
@@ -187,6 +189,17 @@ test( 'mappings: numeric-only without numeric token is unsupported_value', funct
 	eq( 'unsupported_value', $res['status'], 'non-numeric value should be unsupported' );
 } );
 
+test( 'mappings: disabled platform does not inject (toggle is honored)', function () {
+	reset_world();
+	list( $tracked ) = sample_slugs();
+	// Operator disables the platform via the Mappings editor override.
+	update_option( Mappings::OPTION, [ $tracked[0] => [ 'token_param' => $tracked[1], 'disabled' => true ] ] );
+	$m   = new Mappings();
+	$res = $m->resolve_injection( $tracked[0], 'TOKENVALUE', '123' );
+	eq( 'disabled', $res['status'], 'disabled platform should report disabled status' );
+	eq( null, $res['query'], 'disabled platform must not produce an injection query' );
+} );
+
 /* ------------------------------------------------------------------ */
 /* Recorder — the #1 dual-contract fix                                 */
 /* ------------------------------------------------------------------ */
@@ -299,6 +312,41 @@ test( 'recorder: tracking failure never breaks the redirect', function () {
 	$rec = new_recorder();
 	$out = $rec->handle( [ 'url' => 'https://t.example/safe', 'link_id' => 999 ] );
 	ok( is_array( $out ) && ! empty( $out['url'] ), 'handler must always return usable data' );
+} );
+
+/* ------------------------------------------------------------------ */
+/* Retention prune (timezone correctness)                              */
+/* ------------------------------------------------------------------ */
+
+test( 'prune: retention=0 keeps everything (no DELETE)', function () {
+	reset_world();
+	update_option( Settings::OPTION, array_merge( Settings::defaults(), [ 'retention_days' => 0 ] ) );
+	$p           = Plugin::instance();
+	$p->settings = new Settings();
+	$GLOBALS['wpdb']->last_query = '';
+	$p->prune();
+	eq( '', $GLOBALS['wpdb']->last_query, 'retention=0 must not run a DELETE' );
+} );
+
+test( 'prune: cutoff uses site-local time, not UTC (timezone bug regression)', function () {
+	reset_world();
+	// Simulate a UTC+10 site with a frozen clock: created_at rows are written in
+	// local wall-clock, so the cutoff must be in that same wall-clock space.
+	$GLOBALS['pldv_test_now_ts']     = 1750000000; // fixed instant.
+	$GLOBALS['pldv_test_gmt_offset'] = 10 * 3600;
+	update_option( Settings::OPTION, array_merge( Settings::defaults(), [ 'retention_days' => 7 ] ) );
+	$p           = Plugin::instance();
+	$p->settings = new Settings();
+	$p->prune();
+
+	$q = $GLOBALS['wpdb']->last_query;
+	ok( strpos( $q, 'DELETE FROM' ) !== false, 'prune should issue a DELETE' );
+
+	// Expected cutoff = local-now minus 7 days, in the SAME local wall-clock the
+	// rows are stamped with. The old (buggy) code used gmdate(time()-days), which
+	// would be 10h off and fail this assertion.
+	$expected = gmdate( 'Y-m-d H:i:s', strtotime( current_time( 'mysql' ) ) - 7 * 86400 );
+	ok( strpos( $q, $expected ) !== false, "cutoff not in site-local time; query: {$q}" );
 } );
 
 /* ------------------------------------------------------------------ */

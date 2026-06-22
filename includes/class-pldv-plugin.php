@@ -95,8 +95,12 @@ final class Plugin {
 		}
 
 		global $wpdb;
-		$table  = DB::table_name();
-		$cutoff = gmdate( 'Y-m-d H:i:s', time() - ( $days * DAY_IN_SECONDS ) );
+		$table = DB::table_name();
+		// created_at is written with current_time('mysql') (site-local), so the
+		// cutoff must be computed in the same wall-clock space — not raw UTC, or
+		// the retention window is skewed by the site's UTC offset.
+		$now    = strtotime( current_time( 'mysql' ) );
+		$cutoff = gmdate( 'Y-m-d H:i:s', $now - ( $days * DAY_IN_SECONDS ) );
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE created_at < %s", $cutoff ) );
 	}
 

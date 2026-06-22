@@ -369,7 +369,7 @@ class Admin {
 	private function render_test_result( array $r, bool $live ): void {
 		echo '<h2>' . esc_html__( 'Result', 'pretty-links-dv' ) . ( $live ? ' — ' . esc_html__( 'test row inserted', 'pretty-links-dv' ) : ' — ' . esc_html__( 'dry run (nothing stored)', 'pretty-links-dv' ) ) . '</h2>';
 
-		$status_colors = [ 'tracked' => 'green', 'no_software' => '#999', 'no_mapping' => '#d63638', 'unsupported_value' => '#dba617' ];
+		$status_colors = [ 'tracked' => 'green', 'no_software' => '#999', 'disabled' => '#999', 'no_mapping' => '#d63638', 'unsupported_value' => '#dba617' ];
 		$color         = $status_colors[ $r['mapping_status'] ] ?? '#333';
 
 		echo '<table class="widefat striped" style="max-width:900px;"><tbody>';

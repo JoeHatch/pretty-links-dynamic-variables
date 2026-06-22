@@ -12,6 +12,10 @@
 
 error_reporting( E_ALL & ~E_DEPRECATED );
 
+// WordPress runs PHP in UTC and offsets via current_time(); mirror that so the
+// retention-cron timezone math is exercised honestly (not masked by the stub).
+date_default_timezone_set( 'UTC' );
+
 define( 'ABSPATH', dirname( __DIR__ ) . '/' );
 define( 'PLDV_DIR', dirname( __DIR__ ) . '/' );
 define( 'PLDV_URL', 'http://example.test/wp-content/plugins/pretty-links-dv/' );
@@ -68,8 +72,29 @@ function absint( $v ) {
 function wp_salt( $scheme = '' ) {
 	return 'test-salt-' . $scheme;
 }
+// Simulated site-local offset (seconds) so tests can model a non-UTC site and
+// surface timezone bugs. 0 = UTC. Set $GLOBALS['pldv_test_gmt_offset'] in a test.
 function current_time( $type ) {
-	return 'mysql' === $type ? gmdate( 'Y-m-d H:i:s' ) : time();
+	$base   = $GLOBALS['pldv_test_now_ts'] ?? time(); // freeze the clock in tests.
+	$offset = $GLOBALS['pldv_test_gmt_offset'] ?? 0;
+	$now    = $base + $offset;
+	return 'mysql' === $type ? gmdate( 'Y-m-d H:i:s', $now ) : $now;
+}
+
+/* ----- cron / hook stubs (no-ops; prune is invoked directly in tests) ----- */
+function add_action( $tag, $cb, $priority = 10, $args = 1 ) {}
+function add_filter( $tag, $cb, $priority = 10, $args = 1 ) {}
+function wp_next_scheduled( $hook ) {
+	return false;
+}
+function wp_schedule_event( $ts, $recurrence, $hook ) {
+	return true;
+}
+function wp_unschedule_event( $ts, $hook ) {
+	return true;
+}
+function wp_clear_scheduled_hook( $hook ) {
+	return true;
 }
 
 /**
@@ -78,8 +103,9 @@ function current_time( $type ) {
 class PLDV_Fake_Wpdb {
 	public $prefix    = 'wp_';
 	public $insert_id = 0;
-	public $inserts   = [];
-	public $links     = []; // id => row object for prli_links lookups.
+	public $inserts    = [];
+	public $links      = []; // id => row object for prli_links lookups.
+	public $last_query = '';
 
 	public function prepare( $query, ...$args ) {
 		if ( 1 === count( $args ) && is_array( $args[0] ) ) {
@@ -116,6 +142,7 @@ class PLDV_Fake_Wpdb {
 		return 1;
 	}
 	public function query( $query ) {
+		$this->last_query = $query;
 		return 0;
 	}
 	public function reset() {
@@ -134,3 +161,4 @@ require_once PLDV_DIR . 'includes/class-pldv-crypto.php';
 require_once PLDV_DIR . 'includes/class-pldv-mappings.php';
 require_once PLDV_DIR . 'includes/class-pldv-db.php';
 require_once PLDV_DIR . 'includes/class-pldv-recorder.php';
+require_once PLDV_DIR . 'includes/class-pldv-plugin.php';

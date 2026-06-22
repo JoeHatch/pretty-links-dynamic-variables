@@ -84,13 +84,19 @@ class Mappings {
 	 * @param string $numeric_token Numeric fallback for numeric-only platforms.
 	 * @return array{
 	 *   status:string, param:?string, value:?string, query:?string
-	 * } status ∈ tracked|no_mapping|unsupported_value
+	 * } status ∈ tracked|no_mapping|disabled|unsupported_value
 	 */
 	public function resolve_injection( string $slug, string $token, string $numeric_token = '' ): array {
 		$platform = $this->get( $slug );
 
 		if ( ! $platform || empty( $platform['token_param'] ) ) {
 			return [ 'status' => 'no_mapping', 'param' => null, 'value' => null, 'query' => null ];
+		}
+
+		// Operator disabled this platform in the Mappings editor: record the click
+		// (lossless, with a visible status) but never inject a token.
+		if ( ! empty( $platform['disabled'] ) ) {
+			return [ 'status' => 'disabled', 'param' => null, 'value' => null, 'query' => null ];
 		}
 
 		$param      = (string) $platform['token_param'];
