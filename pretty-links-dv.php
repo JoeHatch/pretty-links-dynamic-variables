@@ -7,7 +7,8 @@
  * Author: StatsDrone
  * Author URI: https://statsdrone.com
  * Text Domain: pretty-links-dv
- * License: Proprietary (internal/private use only — see LICENSE)
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  *
  * NOTE: This is the v2 rewrite. The legacy single-file plugin (pldv-main.php)
  * is superseded and must NOT be active at the same time as this file.

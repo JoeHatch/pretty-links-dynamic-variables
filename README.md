@@ -65,6 +65,6 @@ Single-responsibility classes under the `PrettyLinksDV\` namespace in `includes/
 
 ## License
 
-Proprietary — internal/private use only. You may modify and use the code
-internally without sharing it; redistribution requires written permission. See
-[LICENSE](LICENSE). © 2025–2026 [StatsDrone](https://www.statsdrone.com)
+GPLv2 or later — see [LICENSE](LICENSE). GPL only requires sharing changes if
+you **distribute** the plugin to third parties; internal use and private
+modifications carry no such obligation. © 2025–2026 [StatsDrone](https://www.statsdrone.com)
