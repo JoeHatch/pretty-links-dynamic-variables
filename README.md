@@ -1,95 +1,68 @@
-# Pretty Links Dynamic Variables
+# Pretty Links Dynamic Variables (v2)
 
-**Converts Pretty Links into dynamic tracking URLs with unique click IDs based on selected affiliate program software.**
+**Records every Pretty Link click with full context — click ID, page, list position, operator, placement — and injects an encrypted dynamic-variable token into the outbound affiliate URL based on the link's selected software.**
 
-## Description
+## What it does
 
-This WordPress plugin automatically appends a unique click ID parameter to outbound Pretty Links, customized per affiliate software. This is useful for tracking conversions, managing attribution, and improving analytics for affiliate campaigns.
+When a visitor clicks a Pretty Link, this plugin:
 
-Supported affiliate platforms include: Cellxpert, ReferOn, Income Access, MyAffiliates, Affise, Smartico, Post Affiliate Pro, and many more.
+1. Captures click context client-side (page, the list position the visitor actually saw after any geo reordering, operator, placement) and passes it along.
+2. Generates a unique 128-bit click ID and wraps it in an **encrypted, opaque token** (libsodium secretbox).
+3. Records the click — **always**, even when the link has no software mapping — in a dedicated `wp_pldv_clicks` table with a `mapping_status` so no data is lost.
+4. Injects the token into the correct dynamic-variable parameter for the link's selected affiliate software (so the value surfaces in that platform's own report and can be reconciled later).
+5. Lets Pretty Links perform its normal redirect — its native click tracking stays intact (no early interception).
 
-## Features
+## Managed admin (Pretty Links DV menu)
 
-- Injects a unique `clickid` based on selected affiliate software
-- Early interception of redirects for accurate attribution
-- Full integration with Pretty Links plugin
-- Admin metabox to select affiliate software per link
-- Debug UI for testing and log inspection
-- Fallback hook support via `prli_redirect_url` filter
+- **Reports** — clicks by link / page / list position / operator, a DV-coverage view (which links are losing mapping), drill-down, and CSV export.
+- **Settings** — capture scope, token/encryption, key source + rotation, IP/privacy mode, retention. Fully managed; no code edits.
+- **Mappings** — per-platform dynamic-variable parameter config, seeded from the StatsDrone DV sheet and editable, with platform value constraints (numeric-only, etc.).
+- **Test** — pick a link, dry-run the whole pipeline to see the generated URL, token, decrypted payload, and the exact row that would be written — or send a tagged live test click.
 
-## How It Works
+## Architecture
 
-When a visitor clicks on a Pretty Link, the plugin:
+Single-responsibility classes under the `PrettyLinksDV\` namespace in `includes/`:
 
-1. Intercepts the request before WordPress handles redirection
-2. Looks up the configured affiliate software for that link
-3. Appends a unique click ID using the correct query parameter for the selected platform
-4. Redirects the user to the final URL with the appended click ID
+| File | Role |
+|------|------|
+| `pretty-links-dv.php` | Bootstrap, autoloader, activation |
+| `class-pldv-db.php` | Clicks table + inserts |
+| `class-pldv-click-id.php` | Click ID generation |
+| `class-pldv-crypto.php` | Token encryption + key management |
+| `class-pldv-mappings.php` | Software → DV-parameter resolution |
+| `class-pldv-settings.php` | Settings option + defaults |
+| `class-pldv-recorder.php` | `prli_redirect_url` record/inject + `simulate()` |
+| `class-pldv-capture.php` + `assets/js/pldv-capture.js` | Click-time DOM capture |
+| `class-pldv-admin.php` | Reports / Settings / Mappings / Test UI |
+| `class-pldv-reports.php` | Reporting queries |
+| `class-pldv-meta-box.php` | Per-link software selection |
+| `data/dv-mappings.json` | DV parameter mappings (from the sheet) |
 
-If early interception fails, the plugin falls back to Pretty Links’ native `prli_redirect_url` filter.
+## Configuration
 
-## Supported Affiliate Software
-
-| Platform             | Query Parameter       |
-|----------------------|-----------------------|
-| Cellxpert            | `afp1={clickid}`      |
-| ReferOn              | `clickid={clickid}`   |
-| Income Access        | `c={clickid}`         |
-| MyAffiliates         | `payload={clickid}`   |
-| MAP                  | `cid={clickid}`       |
-| Mexos                | `var1={clickid}`      |
-| Raventrack           | `s1={clickid}`        |
-| ComeOn / Omarsys     | `var={clickid}`       |
-| FirstCasinoPartners  | `clickid={clickid}`   |
-| Alanbase             | `sub_id1={clickid}`   |
-| Smartico / TAP       | `afp={clickid}`       |
-| PostAffiliatePro     | `s1={clickid}`        |
-| Affelios             | `clickid={clickid}` |
-| Affise               | `sub1={clickid}`      |
-| Realtime Gaming      | `subGid={clickid}`    |
-| Quintessence         | `anid={clickid}`      |
-| NetRefer             | `var1={clickid}`      |
-| GoldenReels / PoshFriends / Superboss / Profit / Conquestador / Bons | `promo={clickid}` |
-
-## Installation
-
-1. Ensure [Pretty Links](https://wordpress.org/plugins/pretty-link/) is installed and active.
-2. Upload this plugin to your `/wp-content/plugins/` directory.
-3. Activate the plugin via the WordPress admin.
-4. Edit a Pretty Link and select the appropriate affiliate software from the “Program Software” metabox.
-5. Use the test links and debug UI (Settings > PL Debug) to verify functionality.
-
-## Debugging
-
-Go to **Settings > PL Debug** in the WordPress admin to:
-
-- Test predefined Pretty Links
-- View and clear the plugin log (`wp-content/dv-test.log`)
-
-## Logging
-
-The plugin writes logs to: `wp-content/dv-test.log`
-
-Use this to trace redirect behavior, software mapping, and errors.
+- **Encryption key** (recommended): add to `wp-config.php`
+  ```php
+  define( 'PLDV_SECRET_KEY', '...32-byte-base64-key...' );
+  // optional during rotation:
+  define( 'PLDV_SECRET_KEY_OLD', '...previous-key...' );
+  ```
+  If unset, a key is generated and stored in the options table on activation.
+- **Drop click history on uninstall** (off by default):
+  ```php
+  define( 'PLDV_DROP_DATA_ON_UNINSTALL', true );
+  ```
 
 ## Requirements
 
 - WordPress 5.0+
 - Pretty Links plugin
-- PHP 7.2+
+- PHP 7.4+ (libsodium, bundled since PHP 7.2, recommended for encryption)
 
-## Changelog
+## Status
 
-### v1.0
-- Initial release
-- Early hook-based redirect interception
-- Admin UI for software selection
-- Debug panel and log view
+- **v2.0.0-dev.** P1 (data + redirect core), P2 (capture), and P3 (managed admin) are implemented and tested. P4 (network postback/conversion reconciliation) is planned — see `BUILD-PLAN.md`.
+- The legacy single-file plugin `pldv-main.php` is **superseded** and must not be active at the same time as this plugin.
 
 ## License
 
-MIT
-
-## Author
-
-[StatsDrone](https://www.statsdrone.com)
+MIT · [StatsDrone](https://www.statsdrone.com)

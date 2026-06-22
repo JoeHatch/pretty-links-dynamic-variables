@@ -1,0 +1,324 @@
+{
+  "_meta": {
+    "source": "Dynamic Variables details by Software - Sheet1 (4).csv",
+    "schema_version": 1,
+    "canonical_slots": ["Var1", "Var2", "Var3", "Var4", "Var5", "SubId", "PubId", "ClickId1", "ClickId2"],
+    "notes": "token_param = the URL parameter the opaque click token is injected into (a report-surfaced slot). value_constraint encodes platform quirks the injector must respect. Editable in the Mappings admin (P3); re-import merges over local edits."
+  },
+  "platforms": [
+    {
+      "slug": "income_access",
+      "label": "Income Access",
+      "token_param": "c",
+      "params": [{ "url_param": "c", "canonical": "Var1" }],
+      "report_name": "ACID Report",
+      "report_column": "ACID",
+      "api_field": "affcustomid",
+      "value_constraint": null,
+      "notes": ""
+    },
+    {
+      "slug": "myaffiliates",
+      "label": "MyAffiliates",
+      "token_param": "payload",
+      "params": [{ "url_param": "payload", "canonical": "Var1" }],
+      "report_name": "Customer activity; Payload report",
+      "report_column": "Payload",
+      "api_field": "Payload",
+      "value_constraint": null,
+      "notes": "Falls back to the Payload report (clicks-with-DV only) if Customer activity is unavailable."
+    },
+    {
+      "slug": "cellxpert",
+      "label": "CellXpert",
+      "token_param": "afp1",
+      "params": [
+        { "url_param": "afp1", "canonical": "Var1" },
+        { "url_param": "afp2", "canonical": "Var2" },
+        { "url_param": "afp3", "canonical": "Var3" },
+        { "url_param": "afp4", "canonical": "Var4" },
+        { "url_param": "afp5", "canonical": "Var5" }
+      ],
+      "report_name": "Registrations Report; Earnings Report",
+      "report_column": "afp; AFP",
+      "api_field": "afp",
+      "value_constraint": { "type": "merged", "note": "afp1-afp5 are reported merged as a single AFP value." },
+      "notes": ""
+    },
+    {
+      "slug": "referon",
+      "label": "ReferOn",
+      "token_param": "clickid",
+      "params": [
+        { "url_param": "var1", "canonical": "Var1" },
+        { "url_param": "var2", "canonical": "Var2" },
+        { "url_param": "var3", "canonical": "Var3" },
+        { "url_param": "var4", "canonical": "Var4" },
+        { "url_param": "var5", "canonical": "Var5" },
+        { "url_param": "subid", "canonical": "SubId" },
+        { "url_param": "pubid", "canonical": "PubId" },
+        { "url_param": "clickid", "canonical": "ClickId1" },
+        { "url_param": "click_id", "canonical": "ClickId2" }
+      ],
+      "report_name": "Dynamic reports > General",
+      "report_column": "CLICKID",
+      "api_field": "clickid",
+      "value_constraint": null,
+      "notes": ""
+    },
+    {
+      "slug": "map",
+      "label": "MAP",
+      "token_param": "cid",
+      "params": [
+        { "url_param": "cid", "canonical": "Var1" },
+        { "url_param": "pid", "canonical": "Var2" }
+      ],
+      "report_name": "CID Report; PID Report",
+      "report_column": "CID",
+      "api_field": "N/A",
+      "value_constraint": null,
+      "notes": ""
+    },
+    {
+      "slug": "map_new_ui",
+      "label": "MAP (New UI)",
+      "token_param": "cid",
+      "params": [
+        { "url_param": "cid", "canonical": "Var1" },
+        { "url_param": "pid", "canonical": "Var2" }
+      ],
+      "report_name": "Dynamic Variables Report",
+      "report_column": "CID",
+      "api_field": "N/A",
+      "value_constraint": null,
+      "notes": ""
+    },
+    {
+      "slug": "mexos",
+      "label": "Mexos",
+      "token_param": "var1",
+      "params": [
+        { "url_param": "var1", "canonical": "Var1" },
+        { "url_param": "var2", "canonical": "Var2" }
+      ],
+      "report_name": "Statistics",
+      "report_column": "Var 1",
+      "api_field": "N/A",
+      "value_constraint": null,
+      "notes": ""
+    },
+    {
+      "slug": "raventrack",
+      "label": "RavenTrack",
+      "token_param": "s1",
+      "params": [
+        { "url_param": "s1", "canonical": "Var1" },
+        { "url_param": "s2", "canonical": "Var2" },
+        { "url_param": "s3", "canonical": "Var3" }
+      ],
+      "report_name": "Dynamic Parameter",
+      "report_column": "Dynamic Parameter Value",
+      "api_field": "s1",
+      "value_constraint": null,
+      "notes": ""
+    },
+    {
+      "slug": "comeon_omarsys",
+      "label": "ComeOn / Omarsys",
+      "token_param": "var",
+      "params": [{ "url_param": "var", "canonical": "Var1" }],
+      "report_name": "Dynamic Variables Report",
+      "report_column": "Parameter",
+      "api_field": "parameter",
+      "value_constraint": { "type": "comma_joined", "max": 10, "note": "Up to 10 values comma-separated in a single &var= parameter." },
+      "notes": ""
+    },
+    {
+      "slug": "first_casino_partners",
+      "label": "First Casino Partners",
+      "token_param": "clickid",
+      "params": [
+        { "url_param": "subid", "canonical": "SubId" },
+        { "url_param": "clickid", "canonical": "ClickId1" }
+      ],
+      "report_name": "Statistics",
+      "report_column": "CLICKID",
+      "api_field": "N/A",
+      "value_constraint": null,
+      "notes": ""
+    },
+    {
+      "slug": "alanbase",
+      "label": "Alanbase",
+      "token_param": "sub_id1",
+      "params": [
+        { "url_param": "sub_id1", "canonical": "Var1" },
+        { "url_param": "sub_id2", "canonical": "Var2" },
+        { "url_param": "sub_id3", "canonical": "Var3" },
+        { "url_param": "sub_id4", "canonical": "Var4" },
+        { "url_param": "sub_id5", "canonical": "Var5" }
+      ],
+      "report_name": "Statistics",
+      "report_column": "SUB ID 1",
+      "api_field": "sub1",
+      "value_constraint": null,
+      "notes": ""
+    },
+    {
+      "slug": "smartico_tap",
+      "label": "Smartico / TAP",
+      "token_param": "afp",
+      "params": [
+        { "url_param": "afp", "canonical": "Var1" },
+        { "url_param": "afp1", "canonical": "Var2" },
+        { "url_param": "afp2", "canonical": "Var3" },
+        { "url_param": "afp3", "canonical": "Var4" }
+      ],
+      "report_name": "Media Report",
+      "report_column": "AFP",
+      "api_field": "N/A",
+      "value_constraint": null,
+      "notes": "source_id maps to SubId."
+    },
+    {
+      "slug": "post_affiliate_pro",
+      "label": "Post Affiliate Pro",
+      "token_param": "s1",
+      "params": [
+        { "url_param": "s1", "canonical": "Var1" },
+        { "url_param": "s2", "canonical": "Var2" }
+      ],
+      "report_name": "Clicks list; Commissions",
+      "report_column": "Extra Data 1",
+      "api_field": "data1",
+      "value_constraint": { "type": "max_user_params", "max": 2, "note": "Only 2 DV params (s1, s2) are user-settable; the rest are auto-populated metadata." },
+      "notes": ""
+    },
+    {
+      "slug": "affelios",
+      "label": "Affelios",
+      "token_param": "customParameter",
+      "params": [{ "url_param": "customParameter", "canonical": "Var1" }],
+      "report_name": "Parameter Report",
+      "report_column": "Name",
+      "api_field": "Name",
+      "value_constraint": null,
+      "notes": ""
+    },
+    {
+      "slug": "affise",
+      "label": "Affise",
+      "token_param": "sub1",
+      "params": [
+        { "url_param": "sub1", "canonical": "Var1" },
+        { "url_param": "sub2", "canonical": "Var2" },
+        { "url_param": "sub3", "canonical": "Var3" },
+        { "url_param": "sub4", "canonical": "Var4" },
+        { "url_param": "sub5", "canonical": "Var5" }
+      ],
+      "report_name": "Sub1; Sub2; Sub3; Sub4; Sub5",
+      "report_column": "SubId",
+      "api_field": "sub1",
+      "value_constraint": null,
+      "notes": ""
+    },
+    {
+      "slug": "real_time_gaming",
+      "label": "Real Time Gaming",
+      "token_param": "subGid",
+      "params": [{ "url_param": "subGid", "canonical": "SubId" }],
+      "report_name": "Statistics by Casino",
+      "report_column": "SubID",
+      "api_field": "N/A",
+      "value_constraint": { "type": "numeric_only", "note": "Platform accepts numeric values only; a base64 token cannot be injected here." },
+      "notes": ""
+    },
+    {
+      "slug": "quintessence",
+      "label": "Quintessence",
+      "token_param": "anid",
+      "params": [{ "url_param": "anid", "canonical": "Var1" }],
+      "report_name": "Creative reports",
+      "report_column": "Anid",
+      "api_field": "N/A",
+      "value_constraint": null,
+      "notes": ""
+    },
+    {
+      "slug": "flexoffers",
+      "label": "FlexOffers",
+      "token_param": "subid1",
+      "params": [
+        { "url_param": "subid1", "canonical": "Var1" },
+        { "url_param": "subid2", "canonical": "Var2" },
+        { "url_param": "subid3", "canonical": "Var3" },
+        { "url_param": "subid4", "canonical": "Var4" },
+        { "url_param": "subid5", "canonical": "Var5" }
+      ],
+      "report_name": "Dynamic Report Link Generator",
+      "report_column": "subid1",
+      "api_field": "subid1",
+      "value_constraint": { "type": "needs_config", "note": "URL tracking parameter unconfirmed in source sheet; verify before enabling injection." },
+      "notes": ""
+    },
+    {
+      "slug": "netrefer",
+      "label": "NetRefer",
+      "token_param": "var1",
+      "params": [
+        { "url_param": "var1", "canonical": "Var1" },
+        { "url_param": "var2", "canonical": "Var2" },
+        { "url_param": "var3", "canonical": "Var3" },
+        { "url_param": "subid", "canonical": "SubId" },
+        { "url_param": "pubid", "canonical": "PubId" },
+        { "url_param": "clickid", "canonical": "ClickId1" }
+      ],
+      "report_name": "Dynamic Variables",
+      "report_column": "var1",
+      "api_field": "N/A",
+      "value_constraint": { "type": "param_varies", "note": "Parameter name varies per NetRefer program; confirm per account." },
+      "notes": ""
+    },
+    {
+      "slug": "partnermatrix",
+      "label": "PartnerMatrix",
+      "token_param": "btag",
+      "params": [{ "url_param": "btag", "canonical": "Var1" }],
+      "report_name": "Media Reports",
+      "report_column": "Btag-Dynamic ID",
+      "api_field": "btag",
+      "value_constraint": { "type": "prefix_required", "note": "btag value is '<media-btag>-<DV>'; the DV token must be appended to the link's existing btag prefix, not sent alone." },
+      "notes": ""
+    },
+    {
+      "slug": "golden_reels_group",
+      "label": "Golden Reels / PoshFriends / SuperBoss / Profit / Conquestador / Bons",
+      "token_param": "promo",
+      "params": [
+        { "url_param": "promo", "canonical": "Var1" },
+        { "url_param": "source", "canonical": "Var2" }
+      ],
+      "report_name": "STATS > By SubID",
+      "report_column": "Sub Id",
+      "api_field": "N/A",
+      "value_constraint": null,
+      "notes": ""
+    },
+    {
+      "slug": "softswiss_affilka",
+      "label": "SoftSwiss / Affilka",
+      "token_param": "subid",
+      "params": [
+        { "url_param": "subid", "canonical": "Var1" },
+        { "url_param": "clickid", "canonical": "ClickId1" },
+        { "url_param": "click_id", "canonical": "ClickId2" }
+      ],
+      "report_name": "Reports > Statistics",
+      "report_column": "subid",
+      "api_field": "dynamic_tag_subid",
+      "value_constraint": null,
+      "notes": "Many param aliases accepted (subid, sub1, affid, tid, visit_id, etc.)."
+    }
+  ]
+}
