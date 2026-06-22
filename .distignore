@@ -1,0 +1,13 @@
+# Files present in the repo but excluded from the distributed plugin ZIP.
+# Consumed by `wp dist-archive` / build tooling.
+/.git
+/.github
+/.gitignore
+/.distignore
+/.claude
+/tests
+/BUILD-PLAN.md
+/GUIDE.md
+/Dynamic Variables details by Software*.csv
+*.log
+.DS_Store
