@@ -95,16 +95,50 @@ class Mappings {
 	}
 
 	/**
+	 * Allowed URL params a platform can inject into. Multi-param platforms (e.g.
+	 * NetRefer var1/var2/subid) list them under 'params'; others fall back to the
+	 * single default token_param. Used for per-link param overrides and the
+	 * Mappings/Test/meta-box UIs.
+	 *
+	 * @return string[] Ordered list of url_param names (first = default).
+	 */
+	public function params_for( string $slug ): array {
+		$platform = $this->get( $slug );
+		if ( ! $platform ) {
+			return [];
+		}
+
+		$params = [];
+		if ( ! empty( $platform['params'] ) && is_array( $platform['params'] ) ) {
+			foreach ( $platform['params'] as $p ) {
+				$name = is_array( $p ) ? ( $p['url_param'] ?? '' ) : (string) $p;
+				if ( '' !== $name && ! in_array( $name, $params, true ) ) {
+					$params[] = $name;
+				}
+			}
+		}
+
+		$default = (string) ( $platform['token_param'] ?? '' );
+		if ( '' !== $default && ! in_array( $default, $params, true ) ) {
+			array_unshift( $params, $default );
+		}
+
+		return $params;
+	}
+
+	/**
 	 * Resolve how a token should be injected for a given software slug.
 	 *
 	 * @param string $slug  Software slug stored on the link.
 	 * @param string $token Encrypted/opaque token value.
-	 * @param string $numeric_token Numeric fallback for numeric-only platforms.
+	 * @param string $numeric_token Numeric fallback for numeric-only / length-capped platforms.
+	 * @param string $param_override Per-link chosen param; used only if it is one of
+	 *                               the platform's allowed params (else the default).
 	 * @return array{
 	 *   status:string, param:?string, value:?string, query:?string
 	 * } status ∈ tracked|no_mapping|disabled|unsupported_value
 	 */
-	public function resolve_injection( string $slug, string $token, string $numeric_token = '' ): array {
+	public function resolve_injection( string $slug, string $token, string $numeric_token = '', string $param_override = '' ): array {
 		$platform = $this->get( $slug );
 
 		if ( ! $platform || empty( $platform['token_param'] ) ) {
@@ -117,7 +151,13 @@ class Mappings {
 			return [ 'status' => 'disabled', 'param' => null, 'value' => null, 'query' => null ];
 		}
 
-		$param      = (string) $platform['token_param'];
+		// Per-link override picks which of the platform's params to use; an unknown
+		// override (e.g. mapping edited since) falls back to the default token_param.
+		$param = (string) $platform['token_param'];
+		if ( '' !== $param_override && in_array( $param_override, $this->params_for( $slug ), true ) ) {
+			$param = $param_override;
+		}
+
 		$constraint = $platform['value_constraint'] ?? null;
 		$value      = $token;
 
@@ -139,6 +179,19 @@ class Mappings {
 				// comma_joined / merged / max_user_params / param_varies / prefix_required:
 				// a single-token injection is still valid; the operator handles the
 				// link-side prefix/format. (Full handling lands with the P3 editor.)
+			}
+		}
+
+		// Character-limit restriction: some programs cap the parameter length. We
+		// never truncate (an encrypted token cut mid-string is undecryptable) —
+		// instead fall back to the shorter numeric click-id when it fits, else
+		// record unsupported_value and inject nothing (lossless).
+		$max_length = isset( $platform['max_length'] ) ? (int) $platform['max_length'] : 0;
+		if ( $max_length > 0 && strlen( $value ) > $max_length ) {
+			if ( '' !== $numeric_token && ctype_digit( $numeric_token ) && strlen( $numeric_token ) <= $max_length ) {
+				$value = $numeric_token;
+			} else {
+				return [ 'status' => 'unsupported_value', 'param' => $param, 'value' => null, 'query' => null ];
 			}
 		}
 
