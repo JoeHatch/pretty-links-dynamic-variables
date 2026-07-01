@@ -23,9 +23,12 @@ class Meta_Box {
 
 	/** @var Mappings */
 	private $mappings;
+	/** @var Settings */
+	private $settings;
 
-	public function __construct( Mappings $mappings ) {
+	public function __construct( Mappings $mappings, Settings $settings ) {
 		$this->mappings = $mappings;
+		$this->settings = $settings;
 	}
 
 	public function register(): void {
@@ -77,10 +80,11 @@ class Meta_Box {
 			$param = $platform['token_param'] ?? '';
 
 			// Per-link parameter override for multi-param platforms (e.g. NetRefer
-			// var1/var2/subid). Options reflect the saved software; changing the
-			// software and saving refreshes the list.
+			// var1/var2/subid). Gated behind a setting (off by default) so editors
+			// can't accidentally pick a wrong param. Options reflect the saved
+			// software; changing the software and saving refreshes the list.
 			$params = $selected ? $this->mappings->params_for( $selected ) : [];
-			if ( count( $params ) > 1 ) {
+			if ( $this->settings->param_override_enabled() && count( $params ) > 1 ) {
 				$chosen = get_post_meta( $post->ID, self::PARAM_META, true );
 				echo '<p style="margin-top:8px;"><label for="pldv-param-select" style="font-size:11px;color:#666;">'
 					. esc_html__( 'Parameter for this link', 'pretty-links-dv' ) . '</label>';
@@ -142,13 +146,16 @@ class Meta_Box {
 
 		update_post_meta( $post_id, self::META_KEY, $software );
 
-		// Per-link parameter override: keep only if it is one of the platform's
-		// allowed params, otherwise clear (default param will be used).
-		$param = isset( $_POST['pldv_param'] ) ? sanitize_text_field( wp_unslash( $_POST['pldv_param'] ) ) : '';
-		if ( '' !== $param && '' !== $software && in_array( $param, $this->mappings->params_for( $software ), true ) ) {
-			update_post_meta( $post_id, self::PARAM_META, $param );
-		} else {
-			delete_post_meta( $post_id, self::PARAM_META );
+		// Per-link parameter override: only touched when the feature is enabled, so
+		// disabling the setting hides the control without wiping saved overrides.
+		// Keep the value only if it is one of the platform's allowed params.
+		if ( $this->settings->param_override_enabled() ) {
+			$param = isset( $_POST['pldv_param'] ) ? sanitize_text_field( wp_unslash( $_POST['pldv_param'] ) ) : '';
+			if ( '' !== $param && '' !== $software && in_array( $param, $this->mappings->params_for( $software ), true ) ) {
+				update_post_meta( $post_id, self::PARAM_META, $param );
+			} else {
+				delete_post_meta( $post_id, self::PARAM_META );
+			}
 		}
 	}
 

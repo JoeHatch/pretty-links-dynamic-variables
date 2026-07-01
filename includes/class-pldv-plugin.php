@@ -60,7 +60,7 @@ final class Plugin {
 
 		// Admin: software meta box + the managed admin application.
 		if ( is_admin() ) {
-			( new Meta_Box( $this->mappings ) )->register();
+			( new Meta_Box( $this->mappings, $this->settings ) )->register();
 			( new Admin( $this->settings, $this->mappings, $this->recorder ) )->register();
 			add_action( 'admin_notices', [ $this, 'dependency_notice' ] );
 		}
