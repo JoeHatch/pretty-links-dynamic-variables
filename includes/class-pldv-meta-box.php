@@ -71,58 +71,114 @@ class Meta_Box {
 		echo '</select>';
 		echo '<p class="description">' . esc_html__( 'Select affiliate software for click ID tracking.', 'pretty-links-dv' ) . '</p>';
 
-		// Show the token param / any constraint for the chosen platform.
-		$platform = $selected ? $this->mappings->get( $selected ) : null;
-		if ( $platform ) {
-			$param = $platform['token_param'] ?? '';
+		// Parameter picker + reference info are (re)built client-side so changing
+		// the software updates the sub-parameters immediately, without a save.
+		echo '<div id="pldv-param-wrap"></div>';
+		echo '<div id="pldv-param-info"></div>';
 
-			// Per-link parameter override — shown only for software that has
-			// "Multiple parameters" enabled on its mapping (e.g. NetRefer
-			// var1/subid/clickid). Options reflect the saved software; changing the
-			// software and saving refreshes the list.
-			$params = $selected ? $this->mappings->params_for( $selected ) : [];
-			if ( ! empty( $platform['multi_param'] ) && count( $params ) > 1 ) {
-				$chosen = get_post_meta( $post->ID, self::PARAM_META, true );
-				echo '<p style="margin-top:8px;"><label for="pldv-param-select" style="font-size:11px;color:#666;">'
-					. esc_html__( 'Parameter for this link', 'pretty-links-dv' ) . '</label>';
-				echo '<select name="pldv_param" id="pldv-param-select" style="width:100%;">';
-				printf(
-					'<option value="">%s</option>',
-					/* translators: %s: default URL parameter name */
-					esc_html( sprintf( __( 'Default (%s)', 'pretty-links-dv' ), $param ) )
-				);
-				foreach ( $params as $opt ) {
-					printf(
-						'<option value="%s" %s>%s</option>',
-						esc_attr( $opt ),
-						selected( $opt, $chosen, false ),
-						esc_html( $opt )
-					);
-				}
-				echo '</select></p>';
-			}
+		$chosen = get_post_meta( $post->ID, self::PARAM_META, true );
+		$this->print_param_script( (string) $chosen );
+	}
 
-			if ( $param ) {
-				echo '<p class="description" style="font-size:11px;color:#666;">';
-				printf(
-					/* translators: %s: URL parameter name */
-					esc_html__( 'Token parameter: %s', 'pretty-links-dv' ),
-					'<code>' . esc_html( $param ) . '</code>'
-				);
-				if ( ! empty( $platform['value_constraint']['type'] ) ) {
-					echo ' — ' . esc_html( str_replace( '_', ' ', $platform['value_constraint']['type'] ) );
-				}
-				if ( ! empty( $platform['max_length'] ) ) {
-					/* translators: %d: maximum character length */
-					echo ' — ' . esc_html( sprintf( __( 'max %d chars', 'pretty-links-dv' ), (int) $platform['max_length'] ) );
-				}
-				echo '</p>';
-			}
-
-			if ( ! empty( $platform['notes'] ) ) {
-				echo '<p class="description" style="font-size:11px;color:#666;">' . esc_html( $platform['notes'] ) . '</p>';
-			}
+	/**
+	 * Emit the per-software data map + the JS that rebuilds the parameter picker
+	 * and reference lines whenever the software select changes (and on load).
+	 */
+	private function print_param_script( string $chosen ): void {
+		$map = [];
+		foreach ( $this->mappings->all() as $slug => $platform ) {
+			$params = $this->mappings->params_for( $slug );
+			$map[ $slug ] = [
+				'default'    => (string) ( $platform['token_param'] ?? '' ),
+				'params'     => $params,
+				'multi'      => ! empty( $platform['multi_param'] ) && count( $params ) > 1,
+				'constraint' => ! empty( $platform['value_constraint']['type'] ) ? str_replace( '_', ' ', $platform['value_constraint']['type'] ) : '',
+				'maxLength'  => ! empty( $platform['max_length'] ) ? (int) $platform['max_length'] : 0,
+				'notes'      => (string) ( $platform['notes'] ?? '' ),
+			];
 		}
+
+		$i18n = [
+			'pickLabel'  => __( 'Parameter for this link', 'pretty-links-dv' ),
+			'default'    => __( 'Default (%s)', 'pretty-links-dv' ),
+			'tokenParam' => __( 'Token parameter:', 'pretty-links-dv' ),
+			'maxChars'   => __( 'max %d chars', 'pretty-links-dv' ),
+		];
+		?>
+		<script>
+		( function () {
+			var MAP    = <?php echo wp_json_encode( $map ); ?>;
+			var I18N   = <?php echo wp_json_encode( $i18n ); ?>;
+			var SAVED  = <?php echo wp_json_encode( $chosen ); ?>;
+			var select = document.getElementById( 'pldv-software-select' );
+			var wrap   = document.getElementById( 'pldv-param-wrap' );
+			var info   = document.getElementById( 'pldv-param-info' );
+			if ( ! select || ! wrap || ! info ) { return; }
+
+			function descP() {
+				var p = document.createElement( 'p' );
+				p.className = 'description';
+				p.style.cssText = 'font-size:11px;color:#666;';
+				return p;
+			}
+
+			function render( keepSaved ) {
+				wrap.textContent = '';
+				info.textContent = '';
+				var d = MAP[ select.value ];
+				if ( ! d ) { return; }
+
+				if ( d.multi && d.params.length > 1 ) {
+					var p = document.createElement( 'p' );
+					p.style.marginTop = '8px';
+					var label = document.createElement( 'label' );
+					label.setAttribute( 'for', 'pldv-param-select' );
+					label.style.cssText = 'font-size:11px;color:#666;';
+					label.textContent = I18N.pickLabel;
+					p.appendChild( label );
+
+					var sel = document.createElement( 'select' );
+					sel.name = 'pldv_param';
+					sel.id = 'pldv-param-select';
+					sel.style.width = '100%';
+					var def = document.createElement( 'option' );
+					def.value = '';
+					def.textContent = I18N.default.replace( '%s', d.default );
+					sel.appendChild( def );
+					d.params.forEach( function ( opt ) {
+						var o = document.createElement( 'option' );
+						o.value = opt;
+						o.textContent = opt;
+						if ( keepSaved && opt === SAVED ) { o.selected = true; }
+						sel.appendChild( o );
+					} );
+					p.appendChild( sel );
+					wrap.appendChild( p );
+				}
+
+				if ( d.default ) {
+					var t = descP();
+					t.appendChild( document.createTextNode( I18N.tokenParam + ' ' ) );
+					var code = document.createElement( 'code' );
+					code.textContent = d.default;
+					t.appendChild( code );
+					if ( d.constraint ) { t.appendChild( document.createTextNode( ' — ' + d.constraint ) ); }
+					if ( d.maxLength ) { t.appendChild( document.createTextNode( ' — ' + I18N.maxChars.replace( '%d', d.maxLength ) ) ); }
+					info.appendChild( t );
+				}
+				if ( d.notes ) {
+					var n = descP();
+					n.textContent = d.notes;
+					info.appendChild( n );
+				}
+			}
+
+			// Initial paint keeps the saved param; later changes reset to default.
+			render( true );
+			select.addEventListener( 'change', function () { render( false ); } );
+		} )();
+		</script>
+		<?php
 	}
 
 	public function save( $post_id ): void {
