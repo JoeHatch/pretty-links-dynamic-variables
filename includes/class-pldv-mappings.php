@@ -21,6 +21,9 @@ class Mappings {
 
 	const OPTION = 'pldv_mappings';
 
+	/** Operator-created software→parameter mappings (full self-contained entries). */
+	const CUSTOM_OPTION = 'pldv_custom_mappings';
+
 	/** @var array<string,array>|null Slug-keyed platform map, lazily built. */
 	private $map = null;
 
@@ -65,6 +68,21 @@ class Mappings {
 				$platforms[ $slug ] = is_array( $p )
 					? array_merge( $platforms[ $slug ] ?? [], $p )
 					: $platforms[ $slug ];
+			}
+		}
+
+		// 3. Operator-created custom mappings (full entries; not in the bundled
+		// sheet). Kept in a separate option so "Reset to bundled sheet" (which
+		// deletes self::OPTION) leaves them intact.
+		$custom = get_option( self::CUSTOM_OPTION );
+		if ( is_array( $custom ) ) {
+			foreach ( $custom as $slug => $p ) {
+				if ( ! is_array( $p ) || empty( $p['token_param'] ) ) {
+					continue;
+				}
+				$p['slug']         = $slug;
+				$p['custom']       = true;
+				$platforms[ $slug ] = $p;
 			}
 		}
 

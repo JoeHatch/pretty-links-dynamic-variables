@@ -17,7 +17,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 global $wpdb;
 
 // Always remove plugin options.
-$options = [ 'pldv_settings', 'pldv_mappings', 'pldv_db_version', 'pldv_secret_key', 'pldv_secret_key_old', 'pldv_ip_secret' ];
+$options = [ 'pldv_settings', 'pldv_mappings', 'pldv_custom_mappings', 'pldv_db_version', 'pldv_secret_key', 'pldv_secret_key_old', 'pldv_ip_secret' ];
 foreach ( $options as $opt ) {
 	delete_option( $opt );
 }

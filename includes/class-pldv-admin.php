@@ -217,6 +217,10 @@ class Admin {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Mappings reset to the bundled sheet.', 'pretty-links-dv' ) . '</p></div>';
 			$this->mappings = new Mappings();
 		}
+		if ( isset( $_POST['pldv_custom_mappings_submit'] ) && check_admin_referer( 'pldv_save_custom_mappings' ) ) {
+			$this->save_custom_mappings();
+			$this->mappings = new Mappings();
+		}
 
 		echo '<p class="description">' . esc_html__( 'Token parameter is the URL parameter the encrypted DV token is injected into for each platform. Seeded from the StatsDrone DV sheet; edits are saved as overrides.', 'pretty-links-dv' ) . '</p>';
 
@@ -231,6 +235,9 @@ class Admin {
 		echo '</tr></thead><tbody>';
 
 		foreach ( $this->mappings->all() as $slug => $p ) {
+			if ( ! empty( $p['custom'] ) ) {
+				continue; // Operator-created entries are managed in the Custom mappings section below.
+			}
 			$constraint = ! empty( $p['value_constraint']['type'] ) ? str_replace( '_', ' ', $p['value_constraint']['type'] ) : '—';
 			$enabled    = ! isset( $p['disabled'] ) || ! $p['disabled'];
 			echo '<tr>';
@@ -256,6 +263,72 @@ class Admin {
 		echo ' ';
 		submit_button( __( 'Reset to bundled sheet', 'pretty-links-dv' ), 'secondary', 'pldv_mappings_reset', false );
 		echo '</p></form>';
+
+		$this->render_custom_mappings();
+	}
+
+	/**
+	 * Custom mappings: operator-created software → token-parameter pairs for
+	 * platforms not in the bundled sheet. Full add / edit / delete; once saved
+	 * they behave exactly like bundled platforms (selectable on links, in the
+	 * Test tool, and injected at redirect time).
+	 */
+	private function render_custom_mappings(): void {
+		$custom = get_option( Mappings::CUSTOM_OPTION );
+		$custom = is_array( $custom ) ? $custom : [];
+
+		echo '<h2 style="margin-top:2em;">' . esc_html__( 'Custom mappings', 'pretty-links-dv' ) . '</h2>';
+		echo '<p class="description">' . esc_html__( 'Add your own affiliate software and the URL parameter its DV token should be injected into, for platforms not in the bundled sheet. These become selectable on links and in the Test tool.', 'pretty-links-dv' ) . '</p>';
+
+		echo '<form method="post">';
+		wp_nonce_field( 'pldv_save_custom_mappings' );
+		echo '<table class="wp-list-table widefat striped"><thead><tr>';
+		echo '<th>' . esc_html__( 'Software name', 'pretty-links-dv' ) . '</th>';
+		echo '<th>' . esc_html__( 'Slug', 'pretty-links-dv' ) . '</th>';
+		echo '<th>' . esc_html__( 'Token parameter', 'pretty-links-dv' ) . '</th>';
+		echo '<th>' . esc_html__( 'Enabled', 'pretty-links-dv' ) . '</th>';
+		echo '<th>' . esc_html__( 'Delete', 'pretty-links-dv' ) . '</th>';
+		echo '</tr></thead><tbody>';
+
+		foreach ( $custom as $slug => $p ) {
+			$slug    = sanitize_key( $slug );
+			$enabled = empty( $p['disabled'] );
+			echo '<tr>';
+			printf(
+				'<td><input type="text" name="custom_map[%s][label]" value="%s" class="regular-text" style="width:180px;"></td>',
+				esc_attr( $slug ),
+				esc_attr( $p['label'] ?? $slug )
+			);
+			echo '<td><code style="font-size:11px;">' . esc_html( $slug ) . '</code></td>';
+			printf(
+				'<td><input type="text" name="custom_map[%s][token_param]" value="%s" class="regular-text" style="width:160px;"></td>',
+				esc_attr( $slug ),
+				esc_attr( $p['token_param'] ?? '' )
+			);
+			printf(
+				'<td><input type="checkbox" name="custom_map[%s][enabled]" value="1" %s></td>',
+				esc_attr( $slug ),
+				checked( $enabled, true, false )
+			);
+			printf(
+				'<td><input type="checkbox" name="custom_map[%s][delete]" value="1"></td>',
+				esc_attr( $slug )
+			);
+			echo '</tr>';
+		}
+
+		// Add-new row.
+		echo '<tr>';
+		echo '<td><input type="text" name="custom_new[label]" value="" placeholder="' . esc_attr__( 'e.g. My Network', 'pretty-links-dv' ) . '" class="regular-text" style="width:180px;"></td>';
+		echo '<td><span class="description">' . esc_html__( 'auto', 'pretty-links-dv' ) . '</span></td>';
+		echo '<td><input type="text" name="custom_new[token_param]" value="" placeholder="' . esc_attr__( 'e.g. aff_sub', 'pretty-links-dv' ) . '" class="regular-text" style="width:160px;"></td>';
+		echo '<td colspan="2"><span class="description">' . esc_html__( 'new', 'pretty-links-dv' ) . '</span></td>';
+		echo '</tr>';
+
+		echo '</tbody></table>';
+		echo '<p>';
+		submit_button( __( 'Save Custom Mappings', 'pretty-links-dv' ), 'primary', 'pldv_custom_mappings_submit', false );
+		echo '</p></form>';
 	}
 
 	private function save_mappings(): void {
@@ -275,6 +348,73 @@ class Admin {
 			];
 		}
 		update_option( Mappings::OPTION, $override );
+	}
+
+	/**
+	 * Persist operator-created custom mappings: edit/enable/delete existing rows
+	 * and optionally create one new entry. Slug is derived from the name on
+	 * creation and then held stable (links reference it).
+	 */
+	private function save_custom_mappings(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			return;
+		}
+
+		$existing = get_option( Mappings::CUSTOM_OPTION );
+		$existing = is_array( $existing ) ? $existing : [];
+
+		$rows   = isset( $_POST['custom_map'] ) && is_array( $_POST['custom_map'] ) ? wp_unslash( $_POST['custom_map'] ) : [];
+		$custom = [];
+		foreach ( $rows as $slug => $row ) {
+			$slug = sanitize_key( $slug );
+			if ( ! $slug || ! isset( $existing[ $slug ] ) ) {
+				continue; // Only edit rows we already own.
+			}
+			if ( ! empty( $row['delete'] ) ) {
+				continue; // Dropped.
+			}
+			$label = sanitize_text_field( $row['label'] ?? '' );
+			$custom[ $slug ] = [
+				'slug'        => $slug,
+				'label'       => '' !== $label ? $label : $slug,
+				'token_param' => sanitize_text_field( $row['token_param'] ?? '' ),
+				'custom'      => true,
+				'disabled'    => empty( $row['enabled'] ),
+			];
+		}
+
+		// Optional new entry.
+		$new   = isset( $_POST['custom_new'] ) && is_array( $_POST['custom_new'] ) ? wp_unslash( $_POST['custom_new'] ) : [];
+		$name  = sanitize_text_field( $new['label'] ?? '' );
+		$param = sanitize_text_field( $new['token_param'] ?? '' );
+		$error = '';
+		if ( '' !== $name || '' !== $param ) {
+			$new_slug = sanitize_key( sanitize_title( $name ) );
+			if ( '' === $new_slug ) {
+				$error = __( 'Enter a software name for the new mapping.', 'pretty-links-dv' );
+			} elseif ( '' === $param ) {
+				$error = __( 'Enter a token parameter for the new mapping.', 'pretty-links-dv' );
+			} elseif ( isset( $custom[ $new_slug ] ) || $this->mappings->get( $new_slug ) ) {
+				/* translators: %s: mapping slug. */
+				$error = sprintf( __( 'A mapping with the slug "%s" already exists.', 'pretty-links-dv' ), $new_slug );
+			} else {
+				$custom[ $new_slug ] = [
+					'slug'        => $new_slug,
+					'label'       => $name,
+					'token_param' => $param,
+					'custom'      => true,
+					'disabled'    => false,
+				];
+			}
+		}
+
+		update_option( Mappings::CUSTOM_OPTION, $custom );
+
+		if ( '' !== $error ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $error ) . '</p></div>';
+		} else {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Custom mappings updated.', 'pretty-links-dv' ) . '</p></div>';
+		}
 	}
 
 	/* ------------------------------------------------------------------ */

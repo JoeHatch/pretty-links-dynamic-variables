@@ -200,6 +200,30 @@ test( 'mappings: disabled platform does not inject (toggle is honored)', functio
 	eq( null, $res['query'], 'disabled platform must not produce an injection query' );
 } );
 
+test( 'mappings: custom mapping injects its own token param', function () {
+	reset_world();
+	update_option( Mappings::CUSTOM_OPTION, [
+		'my_network' => [ 'slug' => 'my_network', 'label' => 'My Network', 'token_param' => 'aff_sub', 'custom' => true, 'disabled' => false ],
+	] );
+	$m   = new Mappings();
+	ok( $m->get( 'my_network' ), 'custom slug should resolve via get()' );
+	$res = $m->resolve_injection( 'my_network', 'TOKENVALUE', '123' );
+	eq( 'tracked', $res['status'], 'custom mapping should track' );
+	eq( 'aff_sub', $res['param'], 'custom param mismatch' );
+	eq( 'aff_sub=TOKENVALUE', $res['query'], 'custom query should inject the token verbatim' );
+} );
+
+test( 'mappings: disabled custom mapping reports disabled', function () {
+	reset_world();
+	update_option( Mappings::CUSTOM_OPTION, [
+		'my_network' => [ 'slug' => 'my_network', 'label' => 'My Network', 'token_param' => 'aff_sub', 'custom' => true, 'disabled' => true ],
+	] );
+	$m   = new Mappings();
+	$res = $m->resolve_injection( 'my_network', 'TOKENVALUE', '123' );
+	eq( 'disabled', $res['status'], 'disabled custom mapping should report disabled status' );
+	eq( null, $res['query'], 'disabled custom mapping must not inject' );
+} );
+
 /* ------------------------------------------------------------------ */
 /* Recorder — the #1 dual-contract fix                                 */
 /* ------------------------------------------------------------------ */
