@@ -171,6 +171,9 @@ class Admin {
 
 		$this->checkbox_row( __( 'Store User-Agent', 'pretty-links-dv' ), 'store_user_agent', (bool) $s->get( 'store_user_agent' ), '' );
 
+		$this->checkbox_row( __( 'Per-link parameter override', 'pretty-links-dv' ), 'enable_param_override', (bool) $s->get( 'enable_param_override' ),
+			__( 'Show a parameter picker on links for multi-param platforms (e.g. NetRefer). Off by default to prevent choosing the wrong param.', 'pretty-links-dv' ) );
+
 		$this->text_row( __( 'Request param prefix', 'pretty-links-dv' ), 'param_prefix', (string) $s->get( 'param_prefix' ), 'pldv_' );
 		$this->text_row( __( 'Pretty Link path prefix', 'pretty-links-dv' ), 'link_prefix', (string) $s->get( 'link_prefix' ), '/go/' );
 		$this->text_row( __( 'Row retention (days, 0 = forever)', 'pretty-links-dv' ), 'retention_days', (string) (int) $s->get( 'retention_days' ), '0' );
@@ -195,6 +198,7 @@ class Admin {
 			'encrypt_token'    => ! empty( $in['encrypt_token'] ),
 			'ip_mode'          => in_array( $in['ip_mode'] ?? 'hash', [ 'hash', 'off', 'raw' ], true ) ? $in['ip_mode'] : 'hash',
 			'store_user_agent' => ! empty( $in['store_user_agent'] ),
+			'enable_param_override' => ! empty( $in['enable_param_override'] ),
 			'param_prefix'     => sanitize_key( $in['param_prefix'] ?? 'pldv_' ) ?: 'pldv_',
 			'link_prefix'      => '/' . trim( sanitize_text_field( $in['link_prefix'] ?? '/go/' ), '/' ) . '/',
 			'retention_days'   => absint( $in['retention_days'] ?? 0 ),
