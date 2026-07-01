@@ -278,32 +278,56 @@ class Admin {
 		$custom = is_array( $custom ) ? $custom : [];
 
 		echo '<h2 style="margin-top:2em;">' . esc_html__( 'Custom mappings', 'pretty-links-dv' ) . '</h2>';
-		echo '<p class="description">' . esc_html__( 'Add your own affiliate software and the URL parameter its DV token should be injected into, for platforms not in the bundled sheet. These become selectable on links and in the Test tool.', 'pretty-links-dv' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Add your own affiliate software and the URL parameter(s) its DV token should be injected into, for platforms not in the bundled sheet. These become selectable on links and in the Test tool.', 'pretty-links-dv' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Token parameter(s): comma-separated; the first is the default and the rest can be picked per link. Constraint / max length are enforced at injection: numeric-only sends the numeric click-id; over-limit values fall back to the numeric id or, if that is still too long, record unsupported_value and inject nothing (never truncated).', 'pretty-links-dv' ) . '</p>';
+
+		$constraint_opts = [
+			''             => __( 'None', 'pretty-links-dv' ),
+			'numeric_only' => __( 'Numeric only', 'pretty-links-dv' ),
+			'needs_config' => __( "Needs config (don't inject)", 'pretty-links-dv' ),
+		];
 
 		echo '<form method="post">';
 		wp_nonce_field( 'pldv_save_custom_mappings' );
 		echo '<table class="wp-list-table widefat striped"><thead><tr>';
 		echo '<th>' . esc_html__( 'Software name', 'pretty-links-dv' ) . '</th>';
 		echo '<th>' . esc_html__( 'Slug', 'pretty-links-dv' ) . '</th>';
-		echo '<th>' . esc_html__( 'Token parameter', 'pretty-links-dv' ) . '</th>';
+		echo '<th>' . esc_html__( 'Token parameter(s)', 'pretty-links-dv' ) . '</th>';
+		echo '<th>' . esc_html__( 'Constraint', 'pretty-links-dv' ) . '</th>';
+		echo '<th>' . esc_html__( 'Max length', 'pretty-links-dv' ) . '</th>';
+		echo '<th>' . esc_html__( 'Notes (report location)', 'pretty-links-dv' ) . '</th>';
 		echo '<th>' . esc_html__( 'Enabled', 'pretty-links-dv' ) . '</th>';
 		echo '<th>' . esc_html__( 'Delete', 'pretty-links-dv' ) . '</th>';
 		echo '</tr></thead><tbody>';
 
 		foreach ( $custom as $slug => $p ) {
-			$slug    = sanitize_key( $slug );
-			$enabled = empty( $p['disabled'] );
+			$slug           = sanitize_key( $slug );
+			$enabled        = empty( $p['disabled'] );
+			$params_csv     = implode( ', ', $this->mappings->params_for( $slug ) );
+			$constraint_val = $p['value_constraint']['type'] ?? '';
+			$max_length     = ! empty( $p['max_length'] ) ? (int) $p['max_length'] : '';
 			echo '<tr>';
 			printf(
-				'<td><input type="text" name="custom_map[%s][label]" value="%s" class="regular-text" style="width:180px;"></td>',
+				'<td><input type="text" name="custom_map[%s][label]" value="%s" class="regular-text" style="width:160px;"></td>',
 				esc_attr( $slug ),
 				esc_attr( $p['label'] ?? $slug )
 			);
 			echo '<td><code style="font-size:11px;">' . esc_html( $slug ) . '</code></td>';
 			printf(
-				'<td><input type="text" name="custom_map[%s][token_param]" value="%s" class="regular-text" style="width:160px;"></td>',
+				'<td><input type="text" name="custom_map[%s][params]" value="%s" class="regular-text" style="width:160px;"></td>',
 				esc_attr( $slug ),
-				esc_attr( $p['token_param'] ?? '' )
+				esc_attr( $params_csv )
+			);
+			echo '<td>' . $this->constraint_select( "custom_map[{$slug}][constraint]", (string) $constraint_val, $constraint_opts ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			printf(
+				'<td><input type="number" min="0" name="custom_map[%s][max_length]" value="%s" style="width:70px;"></td>',
+				esc_attr( $slug ),
+				esc_attr( (string) $max_length )
+			);
+			printf(
+				'<td><input type="text" name="custom_map[%s][notes]" value="%s" class="regular-text" style="width:200px;"></td>',
+				esc_attr( $slug ),
+				esc_attr( $p['notes'] ?? '' )
 			);
 			printf(
 				'<td><input type="checkbox" name="custom_map[%s][enabled]" value="1" %s></td>',
@@ -319,9 +343,12 @@ class Admin {
 
 		// Add-new row.
 		echo '<tr>';
-		echo '<td><input type="text" name="custom_new[label]" value="" placeholder="' . esc_attr__( 'e.g. My Network', 'pretty-links-dv' ) . '" class="regular-text" style="width:180px;"></td>';
+		echo '<td><input type="text" name="custom_new[label]" value="" placeholder="' . esc_attr__( 'e.g. My Network', 'pretty-links-dv' ) . '" class="regular-text" style="width:160px;"></td>';
 		echo '<td><span class="description">' . esc_html__( 'auto', 'pretty-links-dv' ) . '</span></td>';
-		echo '<td><input type="text" name="custom_new[token_param]" value="" placeholder="' . esc_attr__( 'e.g. aff_sub', 'pretty-links-dv' ) . '" class="regular-text" style="width:160px;"></td>';
+		echo '<td><input type="text" name="custom_new[params]" value="" placeholder="' . esc_attr__( 'e.g. var1, subid', 'pretty-links-dv' ) . '" class="regular-text" style="width:160px;"></td>';
+		echo '<td>' . $this->constraint_select( 'custom_new[constraint]', '', $constraint_opts ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo '<td><input type="number" min="0" name="custom_new[max_length]" value="" style="width:70px;"></td>';
+		echo '<td><input type="text" name="custom_new[notes]" value="" placeholder="' . esc_attr__( 'Where to find it in the report', 'pretty-links-dv' ) . '" class="regular-text" style="width:200px;"></td>';
 		echo '<td colspan="2"><span class="description">' . esc_html__( 'new', 'pretty-links-dv' ) . '</span></td>';
 		echo '</tr>';
 
@@ -329,6 +356,54 @@ class Admin {
 		echo '<p>';
 		submit_button( __( 'Save Custom Mappings', 'pretty-links-dv' ), 'primary', 'pldv_custom_mappings_submit', false );
 		echo '</p></form>';
+	}
+
+	/** Render a constraint-type <select> for the custom mappings editor. */
+	private function constraint_select( string $name, string $selected, array $opts ): string {
+		$html = '<select name="' . esc_attr( $name ) . '">';
+		foreach ( $opts as $val => $label ) {
+			$html .= sprintf(
+				'<option value="%s" %s>%s</option>',
+				esc_attr( $val ),
+				selected( $val, $selected, false ),
+				esc_html( $label )
+			);
+		}
+		return $html . '</select>';
+	}
+
+	/**
+	 * Build a full custom-mapping entry from posted row fields. Parses the
+	 * comma-separated params (first = default token_param), the constraint type,
+	 * character limit, and notes. Returns null if no usable param was supplied.
+	 *
+	 * @return array|null
+	 */
+	private function custom_entry_from_row( string $slug, string $label, array $row, bool $disabled ): ?array {
+		$parts  = array_filter( array_map( 'sanitize_text_field', array_map( 'trim', explode( ',', $row['params'] ?? '' ) ) ), 'strlen' );
+		$parts  = array_values( array_unique( $parts ) );
+		if ( empty( $parts ) ) {
+			return null;
+		}
+
+		$params = array_map( function ( $p ) {
+			return [ 'url_param' => $p ];
+		}, $parts );
+
+		$type  = sanitize_key( $row['constraint'] ?? '' );
+		$entry = [
+			'slug'             => $slug,
+			'label'            => '' !== $label ? $label : $slug,
+			'token_param'      => $parts[0],
+			'params'           => $params,
+			'value_constraint' => in_array( $type, [ 'numeric_only', 'needs_config' ], true ) ? [ 'type' => $type ] : null,
+			'max_length'       => max( 0, (int) ( $row['max_length'] ?? 0 ) ),
+			'notes'            => sanitize_text_field( $row['notes'] ?? '' ),
+			'custom'           => true,
+			'disabled'         => $disabled,
+		];
+
+		return $entry;
 	}
 
 	private function save_mappings(): void {
@@ -373,38 +448,33 @@ class Admin {
 			if ( ! empty( $row['delete'] ) ) {
 				continue; // Dropped.
 			}
-			$label = sanitize_text_field( $row['label'] ?? '' );
-			$custom[ $slug ] = [
-				'slug'        => $slug,
-				'label'       => '' !== $label ? $label : $slug,
-				'token_param' => sanitize_text_field( $row['token_param'] ?? '' ),
-				'custom'      => true,
-				'disabled'    => empty( $row['enabled'] ),
-			];
+			$entry = $this->custom_entry_from_row( $slug, sanitize_text_field( $row['label'] ?? '' ), $row, empty( $row['enabled'] ) );
+			if ( null !== $entry ) {
+				$custom[ $slug ] = $entry;
+			}
 		}
 
 		// Optional new entry.
 		$new   = isset( $_POST['custom_new'] ) && is_array( $_POST['custom_new'] ) ? wp_unslash( $_POST['custom_new'] ) : [];
 		$name  = sanitize_text_field( $new['label'] ?? '' );
-		$param = sanitize_text_field( $new['token_param'] ?? '' );
+		$param = sanitize_text_field( $new['params'] ?? '' );
 		$error = '';
 		if ( '' !== $name || '' !== $param ) {
 			$new_slug = sanitize_key( sanitize_title( $name ) );
 			if ( '' === $new_slug ) {
 				$error = __( 'Enter a software name for the new mapping.', 'pretty-links-dv' );
-			} elseif ( '' === $param ) {
-				$error = __( 'Enter a token parameter for the new mapping.', 'pretty-links-dv' );
+			} elseif ( '' === trim( $param ) ) {
+				$error = __( 'Enter at least one token parameter for the new mapping.', 'pretty-links-dv' );
 			} elseif ( isset( $custom[ $new_slug ] ) || $this->mappings->get( $new_slug ) ) {
 				/* translators: %s: mapping slug. */
 				$error = sprintf( __( 'A mapping with the slug "%s" already exists.', 'pretty-links-dv' ), $new_slug );
 			} else {
-				$custom[ $new_slug ] = [
-					'slug'        => $new_slug,
-					'label'       => $name,
-					'token_param' => $param,
-					'custom'      => true,
-					'disabled'    => false,
-				];
+				$entry = $this->custom_entry_from_row( $new_slug, $name, $new, false );
+				if ( null === $entry ) {
+					$error = __( 'Enter at least one token parameter for the new mapping.', 'pretty-links-dv' );
+				} else {
+					$custom[ $new_slug ] = $entry;
+				}
 			}
 		}
 
@@ -424,12 +494,13 @@ class Admin {
 	private function render_test(): void {
 		$result   = null;
 		$live     = false;
-		$inputs   = [ 'target_url' => '', 'software' => '', 'page' => '', 'position' => '', 'operator' => '' ];
+		$inputs   = [ 'target_url' => '', 'software' => '', 'param' => '', 'page' => '', 'position' => '', 'operator' => '' ];
 
 		if ( isset( $_POST['pldv_test_submit'] ) && check_admin_referer( 'pldv_run_test' ) ) {
 			$in = wp_unslash( $_POST );
 			$inputs['target_url'] = esc_url_raw( $in['target_url'] ?? '' );
 			$inputs['software']   = sanitize_key( $in['software'] ?? '' );
+			$inputs['param']      = sanitize_text_field( $in['param'] ?? '' );
 			$inputs['page']       = sanitize_text_field( $in['page'] ?? '' );
 			$inputs['position']   = $in['position'] !== '' ? absint( $in['position'] ) : null;
 			$inputs['operator']   = sanitize_text_field( $in['operator'] ?? '' );
@@ -442,7 +513,8 @@ class Admin {
 						'page'     => $inputs['page'] ?: null,
 						'position' => $inputs['position'],
 						'operator' => $inputs['operator'] ?: null,
-					]
+					],
+					$inputs['param']
 				);
 				$live = ! empty( $in['pldv_live'] ) && current_user_can( self::CAP );
 				if ( $live ) {
@@ -490,6 +562,16 @@ class Admin {
 			printf( '<option value="%s" %s>%s</option>', esc_attr( $slug ), selected( $slug, $inputs['software'], false ), esc_html( $p['label'] ?? $slug ) );
 		}
 		echo '</select></td></tr>';
+
+		// Parameter override — populated from the currently-selected software's
+		// allowed params (reflects the last run; re-run after changing software).
+		$test_params = $inputs['software'] ? $this->mappings->params_for( $inputs['software'] ) : [];
+		echo '<tr><th>' . esc_html__( 'Parameter', 'pretty-links-dv' ) . '</th><td><select name="param">';
+		echo '<option value="">' . esc_html__( '— default —', 'pretty-links-dv' ) . '</option>';
+		foreach ( $test_params as $opt ) {
+			printf( '<option value="%s" %s>%s</option>', esc_attr( $opt ), selected( $opt, $inputs['param'], false ), esc_html( $opt ) );
+		}
+		echo '</select> <span class="description">' . esc_html__( 'multi-param platforms only; pick software then re-run to populate', 'pretty-links-dv' ) . '</span></td></tr>';
 
 		$this->test_input( 'page', __( 'Simulated page', 'pretty-links-dv' ), (string) $inputs['page'], '', 'best-crypto-casinos' );
 		$this->test_input( 'position', __( 'Simulated position', 'pretty-links-dv' ), (string) $inputs['position'], '', '1' );

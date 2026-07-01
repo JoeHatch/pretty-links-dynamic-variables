@@ -140,8 +140,9 @@ class Recorder {
 		if ( '' === $software ) {
 			$status = 'no_software';
 		} else {
-			$inj    = $this->mappings->resolve_injection( $software, $built['value'], Click_Id::generate_numeric() );
-			$status = $inj['status'];
+			$param_override = $link ? $this->link_param( $link ) : '';
+			$inj            = $this->mappings->resolve_injection( $software, $built['value'], Click_Id::generate_numeric(), $param_override );
+			$status         = $inj['status'];
 
 			if ( 'tracked' === $status && ! empty( $inj['query'] ) ) {
 				$param_sent = $inj['param'];
@@ -217,7 +218,7 @@ class Recorder {
 	 * @param array  $context    Simulated capture context (page, position, ...).
 	 * @return array Full computed result incl. final_url, token, decrypted payload, status.
 	 */
-	public function simulate( string $target_url, string $software, array $context = [] ): array {
+	public function simulate( string $target_url, string $software, array $context = [], string $param_override = '' ): array {
 		$context  = array_merge(
 			[
 				'page'           => null,
@@ -241,7 +242,7 @@ class Recorder {
 		if ( '' === $software ) {
 			$status = 'no_software';
 		} else {
-			$inj    = $this->mappings->resolve_injection( $software, $built['value'], Click_Id::generate_numeric() );
+			$inj    = $this->mappings->resolve_injection( $software, $built['value'], Click_Id::generate_numeric(), $param_override );
 			$status = $inj['status'];
 			if ( 'tracked' === $status && ! empty( $inj['query'] ) ) {
 				$param_sent = $inj['param'];
@@ -278,6 +279,21 @@ class Recorder {
 		}
 
 		return is_string( $software ) ? trim( $software ) : '';
+	}
+
+	/**
+	 * Resolve the per-link parameter override (which of a multi-param platform's
+	 * params this link injects into). Empty means "use the platform default".
+	 * Mirrors link_software(): link id first, then the underlying WP post.
+	 */
+	private function link_param( $link ): string {
+		$param = get_post_meta( $link->id, '_pldv_param', true );
+
+		if ( ! $param && ! empty( $link->link_cpt_id ) ) {
+			$param = get_post_meta( $link->link_cpt_id, '_pldv_param', true );
+		}
+
+		return is_string( $param ) ? trim( $param ) : '';
 	}
 
 	/**

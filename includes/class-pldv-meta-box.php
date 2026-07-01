@@ -17,8 +17,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Meta_Box {
 
-	const META_KEY = '_pldv_software';
-	const NONCE    = 'pldv_save_meta';
+	const META_KEY   = '_pldv_software';
+	const PARAM_META = '_pldv_param';
+	const NONCE      = 'pldv_save_meta';
 
 	/** @var Mappings */
 	private $mappings;
@@ -74,6 +75,32 @@ class Meta_Box {
 		$platform = $selected ? $this->mappings->get( $selected ) : null;
 		if ( $platform ) {
 			$param = $platform['token_param'] ?? '';
+
+			// Per-link parameter override for multi-param platforms (e.g. NetRefer
+			// var1/var2/subid). Options reflect the saved software; changing the
+			// software and saving refreshes the list.
+			$params = $selected ? $this->mappings->params_for( $selected ) : [];
+			if ( count( $params ) > 1 ) {
+				$chosen = get_post_meta( $post->ID, self::PARAM_META, true );
+				echo '<p style="margin-top:8px;"><label for="pldv-param-select" style="font-size:11px;color:#666;">'
+					. esc_html__( 'Parameter for this link', 'pretty-links-dv' ) . '</label>';
+				echo '<select name="pldv_param" id="pldv-param-select" style="width:100%;">';
+				printf(
+					'<option value="">%s</option>',
+					/* translators: %s: default URL parameter name */
+					esc_html( sprintf( __( 'Default (%s)', 'pretty-links-dv' ), $param ) )
+				);
+				foreach ( $params as $opt ) {
+					printf(
+						'<option value="%s" %s>%s</option>',
+						esc_attr( $opt ),
+						selected( $opt, $chosen, false ),
+						esc_html( $opt )
+					);
+				}
+				echo '</select></p>';
+			}
+
 			if ( $param ) {
 				echo '<p class="description" style="font-size:11px;color:#666;">';
 				printf(
@@ -84,7 +111,15 @@ class Meta_Box {
 				if ( ! empty( $platform['value_constraint']['type'] ) ) {
 					echo ' — ' . esc_html( str_replace( '_', ' ', $platform['value_constraint']['type'] ) );
 				}
+				if ( ! empty( $platform['max_length'] ) ) {
+					/* translators: %d: maximum character length */
+					echo ' — ' . esc_html( sprintf( __( 'max %d chars', 'pretty-links-dv' ), (int) $platform['max_length'] ) );
+				}
 				echo '</p>';
+			}
+
+			if ( ! empty( $platform['notes'] ) ) {
+				echo '<p class="description" style="font-size:11px;color:#666;">' . esc_html( $platform['notes'] ) . '</p>';
 			}
 		}
 	}
@@ -106,6 +141,15 @@ class Meta_Box {
 		}
 
 		update_post_meta( $post_id, self::META_KEY, $software );
+
+		// Per-link parameter override: keep only if it is one of the platform's
+		// allowed params, otherwise clear (default param will be used).
+		$param = isset( $_POST['pldv_param'] ) ? sanitize_text_field( wp_unslash( $_POST['pldv_param'] ) ) : '';
+		if ( '' !== $param && '' !== $software && in_array( $param, $this->mappings->params_for( $software ), true ) ) {
+			update_post_meta( $post_id, self::PARAM_META, $param );
+		} else {
+			delete_post_meta( $post_id, self::PARAM_META );
+		}
 	}
 
 	private function verify( $post_id ): bool {

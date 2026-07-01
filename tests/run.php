@@ -224,6 +224,60 @@ test( 'mappings: disabled custom mapping reports disabled', function () {
 	eq( null, $res['query'], 'disabled custom mapping must not inject' );
 } );
 
+test( 'mappings: numeric-only custom mapping sends the numeric value', function () {
+	reset_world();
+	update_option( Mappings::CUSTOM_OPTION, [
+		'num_net' => [ 'slug' => 'num_net', 'label' => 'Num Net', 'token_param' => 'sid', 'params' => [ [ 'url_param' => 'sid' ] ], 'value_constraint' => [ 'type' => 'numeric_only' ], 'custom' => true, 'disabled' => false ],
+	] );
+	$m   = new Mappings();
+	$res = $m->resolve_injection( 'num_net', 'NON_NUMERIC_TOKEN', '987654321012345678' );
+	eq( 'tracked', $res['status'], 'numeric-only custom should track with numeric fallback' );
+	eq( '987654321012345678', $res['value'], 'should send the numeric value' );
+} );
+
+test( 'mappings: max_length over limit falls back to the numeric id when it fits', function () {
+	reset_world();
+	update_option( Mappings::CUSTOM_OPTION, [
+		'cap_net' => [ 'slug' => 'cap_net', 'label' => 'Cap Net', 'token_param' => 'sub', 'params' => [ [ 'url_param' => 'sub' ] ], 'max_length' => 20, 'custom' => true, 'disabled' => false ],
+	] );
+	$m    = new Mappings();
+	$long = str_repeat( 'A', 96 ); // exceeds 20; the 18-digit numeric id fits.
+	$res  = $m->resolve_injection( 'cap_net', $long, '123456789012345678' );
+	eq( 'tracked', $res['status'], 'over-limit value should fall back and still track' );
+	eq( '123456789012345678', $res['value'], 'should send the shorter numeric id' );
+	ok( strlen( $res['value'] ) <= 20, 'sent value must respect the max length' );
+} );
+
+test( 'mappings: max_length rejects when even the numeric id is too long', function () {
+	reset_world();
+	update_option( Mappings::CUSTOM_OPTION, [
+		'tiny_net' => [ 'slug' => 'tiny_net', 'label' => 'Tiny Net', 'token_param' => 'sub', 'params' => [ [ 'url_param' => 'sub' ] ], 'max_length' => 10, 'custom' => true, 'disabled' => false ],
+	] );
+	$m   = new Mappings();
+	$res = $m->resolve_injection( 'tiny_net', str_repeat( 'A', 96 ), '123456789012345678' );
+	eq( 'unsupported_value', $res['status'], 'limit below numeric length should be unsupported' );
+	eq( null, $res['query'], 'must not inject an over-limit value' );
+} );
+
+test( 'mappings: per-link param override picks an allowed alternate param', function () {
+	reset_world();
+	update_option( Mappings::CUSTOM_OPTION, [
+		'multi_net' => [ 'slug' => 'multi_net', 'label' => 'Multi Net', 'token_param' => 'var1', 'params' => [ [ 'url_param' => 'var1' ], [ 'url_param' => 'subid' ] ], 'custom' => true, 'disabled' => false ],
+	] );
+	$m = new Mappings();
+	eq( [ 'var1', 'subid' ], $m->params_for( 'multi_net' ), 'params_for should list both params' );
+
+	$def = $m->resolve_injection( 'multi_net', 'TOK', '123' );
+	eq( 'var1', $def['param'], 'default should be the first param' );
+
+	$ovr = $m->resolve_injection( 'multi_net', 'TOK', '123', 'subid' );
+	eq( 'subid', $ovr['param'], 'valid override should switch the param' );
+	eq( 'subid=TOK', $ovr['query'], 'override query should use the chosen param' );
+
+	$bad = $m->resolve_injection( 'multi_net', 'TOK', '123', 'not_a_param' );
+	eq( 'var1', $bad['param'], 'invalid override should fall back to default' );
+} );
+
 /* ------------------------------------------------------------------ */
 /* Recorder — the #1 dual-contract fix                                 */
 /* ------------------------------------------------------------------ */
