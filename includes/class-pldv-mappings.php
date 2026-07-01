@@ -127,6 +127,23 @@ class Mappings {
 	}
 
 	/**
+	 * Whether the per-link parameter picker should be offered for a platform.
+	 * An explicit multi_param flag (set by the Mappings editor / custom mappings)
+	 * wins; otherwise it defaults on for any platform that ships 2+ params, so
+	 * bundled multi-param platforms (CellXpert, NetRefer, …) work out of the box.
+	 */
+	public function multi_param_enabled( string $slug ): bool {
+		$platform = $this->get( $slug );
+		if ( ! $platform ) {
+			return false;
+		}
+		if ( array_key_exists( 'multi_param', $platform ) ) {
+			return (bool) $platform['multi_param'];
+		}
+		return count( $this->params_for( $slug ) ) > 1;
+	}
+
+	/**
 	 * Resolve how a token should be injected for a given software slug.
 	 *
 	 * @param string $slug  Software slug stored on the link.

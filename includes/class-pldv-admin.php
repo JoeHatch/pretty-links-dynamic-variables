@@ -252,7 +252,7 @@ class Admin {
 			printf(
 				'<td style="text-align:center;"><input type="checkbox" name="map[%s][multi_param]" value="1" %s></td>',
 				esc_attr( $slug ),
-				checked( ! empty( $p['multi_param'] ), true, false )
+				checked( $this->mappings->multi_param_enabled( $slug ), true, false )
 			);
 			echo '<td>' . esc_html( $p['report_name'] ?? '' ) . '</td>';
 			echo '<td>' . esc_html( $constraint ) . '</td>';
@@ -591,8 +591,7 @@ class Admin {
 
 		// Parameter override — only for software with "Multiple parameters" enabled.
 		// Options reflect the last run; re-run after changing the software.
-		$test_platform = $inputs['software'] ? $this->mappings->get( $inputs['software'] ) : null;
-		$test_params   = ( $test_platform && ! empty( $test_platform['multi_param'] ) ) ? $this->mappings->params_for( $inputs['software'] ) : [];
+		$test_params   = ( $inputs['software'] && $this->mappings->multi_param_enabled( $inputs['software'] ) ) ? $this->mappings->params_for( $inputs['software'] ) : [];
 		if ( count( $test_params ) > 1 ) {
 			echo '<tr><th>' . esc_html__( 'Parameter', 'pretty-links-dv' ) . '</th><td><select name="param">';
 			echo '<option value="">' . esc_html__( '— default —', 'pretty-links-dv' ) . '</option>';
