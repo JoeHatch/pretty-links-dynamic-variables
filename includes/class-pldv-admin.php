@@ -171,9 +171,6 @@ class Admin {
 
 		$this->checkbox_row( __( 'Store User-Agent', 'pretty-links-dv' ), 'store_user_agent', (bool) $s->get( 'store_user_agent' ), '' );
 
-		$this->checkbox_row( __( 'Per-link parameter override', 'pretty-links-dv' ), 'enable_param_override', (bool) $s->get( 'enable_param_override' ),
-			__( 'Show a parameter picker on links for multi-param platforms (e.g. NetRefer). Off by default to prevent choosing the wrong param.', 'pretty-links-dv' ) );
-
 		$this->text_row( __( 'Request param prefix', 'pretty-links-dv' ), 'param_prefix', (string) $s->get( 'param_prefix' ), 'pldv_' );
 		$this->text_row( __( 'Pretty Link path prefix', 'pretty-links-dv' ), 'link_prefix', (string) $s->get( 'link_prefix' ), '/go/' );
 		$this->text_row( __( 'Row retention (days, 0 = forever)', 'pretty-links-dv' ), 'retention_days', (string) (int) $s->get( 'retention_days' ), '0' );
@@ -198,7 +195,6 @@ class Admin {
 			'encrypt_token'    => ! empty( $in['encrypt_token'] ),
 			'ip_mode'          => in_array( $in['ip_mode'] ?? 'hash', [ 'hash', 'off', 'raw' ], true ) ? $in['ip_mode'] : 'hash',
 			'store_user_agent' => ! empty( $in['store_user_agent'] ),
-			'enable_param_override' => ! empty( $in['enable_param_override'] ),
 			'param_prefix'     => sanitize_key( $in['param_prefix'] ?? 'pldv_' ) ?: 'pldv_',
 			'link_prefix'      => '/' . trim( sanitize_text_field( $in['link_prefix'] ?? '/go/' ), '/' ) . '/',
 			'retention_days'   => absint( $in['retention_days'] ?? 0 ),
@@ -226,13 +222,14 @@ class Admin {
 			$this->mappings = new Mappings();
 		}
 
-		echo '<p class="description">' . esc_html__( 'Token parameter is the URL parameter the encrypted DV token is injected into for each platform. Seeded from the StatsDrone DV sheet; edits are saved as overrides.', 'pretty-links-dv' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Token parameter(s) are the URL parameter(s) the encrypted DV token is injected into; the first is the default. Tick "Multiple params" for platforms that accept several (e.g. NetRefer var1/subid/clickid) to let editors pick which one each link uses. Seeded from the StatsDrone DV sheet; edits are saved as overrides.', 'pretty-links-dv' ) . '</p>';
 
 		echo '<form method="post">';
 		wp_nonce_field( 'pldv_save_mappings' );
 		echo '<table class="wp-list-table widefat striped"><thead><tr>';
 		echo '<th>' . esc_html__( 'Platform', 'pretty-links-dv' ) . '</th>';
-		echo '<th>' . esc_html__( 'Token parameter', 'pretty-links-dv' ) . '</th>';
+		echo '<th>' . esc_html__( 'Token parameter(s)', 'pretty-links-dv' ) . '</th>';
+		echo '<th>' . esc_html__( 'Multiple params', 'pretty-links-dv' ) . '</th>';
 		echo '<th>' . esc_html__( 'Report', 'pretty-links-dv' ) . '</th>';
 		echo '<th>' . esc_html__( 'Constraint', 'pretty-links-dv' ) . '</th>';
 		echo '<th>' . esc_html__( 'Enabled', 'pretty-links-dv' ) . '</th>';
@@ -244,12 +241,18 @@ class Admin {
 			}
 			$constraint = ! empty( $p['value_constraint']['type'] ) ? str_replace( '_', ' ', $p['value_constraint']['type'] ) : '—';
 			$enabled    = ! isset( $p['disabled'] ) || ! $p['disabled'];
+			$params_csv = implode( ', ', $this->mappings->params_for( $slug ) );
 			echo '<tr>';
 			echo '<td><strong>' . esc_html( $p['label'] ?? $slug ) . '</strong><br><code style="font-size:11px;">' . esc_html( $slug ) . '</code></td>';
 			printf(
-				'<td><input type="text" name="map[%s][token_param]" value="%s" class="regular-text" style="width:160px;"></td>',
+				'<td><input type="text" name="map[%s][params]" value="%s" class="regular-text" style="width:160px;"></td>',
 				esc_attr( $slug ),
-				esc_attr( $p['token_param'] ?? '' )
+				esc_attr( $params_csv )
+			);
+			printf(
+				'<td style="text-align:center;"><input type="checkbox" name="map[%s][multi_param]" value="1" %s></td>',
+				esc_attr( $slug ),
+				checked( ! empty( $p['multi_param'] ), true, false )
 			);
 			echo '<td>' . esc_html( $p['report_name'] ?? '' ) . '</td>';
 			echo '<td>' . esc_html( $constraint ) . '</td>';
@@ -283,7 +286,7 @@ class Admin {
 
 		echo '<h2 style="margin-top:2em;">' . esc_html__( 'Custom mappings', 'pretty-links-dv' ) . '</h2>';
 		echo '<p class="description">' . esc_html__( 'Add your own affiliate software and the URL parameter(s) its DV token should be injected into, for platforms not in the bundled sheet. These become selectable on links and in the Test tool.', 'pretty-links-dv' ) . '</p>';
-		echo '<p class="description">' . esc_html__( 'Token parameter(s): comma-separated; the first is the default and the rest can be picked per link. Constraint / max length are enforced at injection: numeric-only sends the numeric click-id; over-limit values fall back to the numeric id or, if that is still too long, record unsupported_value and inject nothing (never truncated).', 'pretty-links-dv' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Token parameter(s): comma-separated; the first is the default. Tick "Multiple params" to let editors pick which parameter each link uses (needs 2+ params). Constraint / max length are enforced at injection: numeric-only sends the numeric click-id; over-limit values fall back to the numeric id or, if that is still too long, record unsupported_value and inject nothing (never truncated).', 'pretty-links-dv' ) . '</p>';
 
 		$constraint_opts = [
 			''             => __( 'None', 'pretty-links-dv' ),
@@ -297,6 +300,7 @@ class Admin {
 		echo '<th>' . esc_html__( 'Software name', 'pretty-links-dv' ) . '</th>';
 		echo '<th>' . esc_html__( 'Slug', 'pretty-links-dv' ) . '</th>';
 		echo '<th>' . esc_html__( 'Token parameter(s)', 'pretty-links-dv' ) . '</th>';
+		echo '<th>' . esc_html__( 'Multiple params', 'pretty-links-dv' ) . '</th>';
 		echo '<th>' . esc_html__( 'Constraint', 'pretty-links-dv' ) . '</th>';
 		echo '<th>' . esc_html__( 'Max length', 'pretty-links-dv' ) . '</th>';
 		echo '<th>' . esc_html__( 'Notes (report location)', 'pretty-links-dv' ) . '</th>';
@@ -321,6 +325,11 @@ class Admin {
 				'<td><input type="text" name="custom_map[%s][params]" value="%s" class="regular-text" style="width:160px;"></td>',
 				esc_attr( $slug ),
 				esc_attr( $params_csv )
+			);
+			printf(
+				'<td style="text-align:center;"><input type="checkbox" name="custom_map[%s][multi_param]" value="1" %s></td>',
+				esc_attr( $slug ),
+				checked( ! empty( $p['multi_param'] ), true, false )
 			);
 			echo '<td>' . $this->constraint_select( "custom_map[{$slug}][constraint]", (string) $constraint_val, $constraint_opts ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			printf(
@@ -350,6 +359,7 @@ class Admin {
 		echo '<td><input type="text" name="custom_new[label]" value="" placeholder="' . esc_attr__( 'e.g. My Network', 'pretty-links-dv' ) . '" class="regular-text" style="width:160px;"></td>';
 		echo '<td><span class="description">' . esc_html__( 'auto', 'pretty-links-dv' ) . '</span></td>';
 		echo '<td><input type="text" name="custom_new[params]" value="" placeholder="' . esc_attr__( 'e.g. var1, subid', 'pretty-links-dv' ) . '" class="regular-text" style="width:160px;"></td>';
+		echo '<td style="text-align:center;"><input type="checkbox" name="custom_new[multi_param]" value="1"></td>';
 		echo '<td>' . $this->constraint_select( 'custom_new[constraint]', '', $constraint_opts ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo '<td><input type="number" min="0" name="custom_new[max_length]" value="" style="width:70px;"></td>';
 		echo '<td><input type="text" name="custom_new[notes]" value="" placeholder="' . esc_attr__( 'Where to find it in the report', 'pretty-links-dv' ) . '" class="regular-text" style="width:200px;"></td>';
@@ -403,6 +413,7 @@ class Admin {
 			'value_constraint' => in_array( $type, [ 'numeric_only', 'needs_config' ], true ) ? [ 'type' => $type ] : null,
 			'max_length'       => max( 0, (int) ( $row['max_length'] ?? 0 ) ),
 			'notes'            => sanitize_text_field( $row['notes'] ?? '' ),
+			'multi_param'      => ! empty( $row['multi_param'] ) && count( $params ) > 1,
 			'custom'           => true,
 			'disabled'         => $disabled,
 		];
@@ -421,10 +432,21 @@ class Admin {
 			if ( ! $slug ) {
 				continue;
 			}
-			$override[ $slug ] = [
-				'token_param' => sanitize_text_field( $row['token_param'] ?? '' ),
+			$parts = array_values( array_unique( array_filter(
+				array_map( 'sanitize_text_field', array_map( 'trim', explode( ',', $row['params'] ?? '' ) ) ),
+				'strlen'
+			) ) );
+			$entry = [
+				'token_param' => $parts[0] ?? '',
 				'disabled'    => empty( $row['enabled'] ),
+				'multi_param' => ! empty( $row['multi_param'] ) && count( $parts ) > 1,
 			];
+			if ( ! empty( $parts ) ) {
+				$entry['params'] = array_map( function ( $p ) {
+					return [ 'url_param' => $p ];
+				}, $parts );
+			}
+			$override[ $slug ] = $entry;
 		}
 		update_option( Mappings::OPTION, $override );
 	}
@@ -567,15 +589,18 @@ class Admin {
 		}
 		echo '</select></td></tr>';
 
-		// Parameter override — populated from the currently-selected software's
-		// allowed params (reflects the last run; re-run after changing software).
-		$test_params = $inputs['software'] ? $this->mappings->params_for( $inputs['software'] ) : [];
-		echo '<tr><th>' . esc_html__( 'Parameter', 'pretty-links-dv' ) . '</th><td><select name="param">';
-		echo '<option value="">' . esc_html__( '— default —', 'pretty-links-dv' ) . '</option>';
-		foreach ( $test_params as $opt ) {
-			printf( '<option value="%s" %s>%s</option>', esc_attr( $opt ), selected( $opt, $inputs['param'], false ), esc_html( $opt ) );
+		// Parameter override — only for software with "Multiple parameters" enabled.
+		// Options reflect the last run; re-run after changing the software.
+		$test_platform = $inputs['software'] ? $this->mappings->get( $inputs['software'] ) : null;
+		$test_params   = ( $test_platform && ! empty( $test_platform['multi_param'] ) ) ? $this->mappings->params_for( $inputs['software'] ) : [];
+		if ( count( $test_params ) > 1 ) {
+			echo '<tr><th>' . esc_html__( 'Parameter', 'pretty-links-dv' ) . '</th><td><select name="param">';
+			echo '<option value="">' . esc_html__( '— default —', 'pretty-links-dv' ) . '</option>';
+			foreach ( $test_params as $opt ) {
+				printf( '<option value="%s" %s>%s</option>', esc_attr( $opt ), selected( $opt, $inputs['param'], false ), esc_html( $opt ) );
+			}
+			echo '</select></td></tr>';
 		}
-		echo '</select> <span class="description">' . esc_html__( 'multi-param platforms only; pick software then re-run to populate', 'pretty-links-dv' ) . '</span></td></tr>';
 
 		$this->test_input( 'page', __( 'Simulated page', 'pretty-links-dv' ), (string) $inputs['page'], '', 'best-crypto-casinos' );
 		$this->test_input( 'position', __( 'Simulated position', 'pretty-links-dv' ), (string) $inputs['position'], '', '1' );

@@ -44,9 +44,6 @@ class Settings {
 			'param_prefix'    => 'pldv_',
 			// Pretty Link path prefix the JS capture layer matches on (e.g. /go/).
 			'link_prefix'     => '/go/',
-			// Show the per-link "which parameter" selector on multi-param platforms.
-			// Off by default so editors can't accidentally pick a wrong param.
-			'enable_param_override' => false,
 		];
 	}
 
@@ -78,9 +75,5 @@ class Settings {
 	public function link_prefix(): string {
 		$prefix = (string) $this->get( 'link_prefix' );
 		return $prefix !== '' ? $prefix : '/go/';
-	}
-
-	public function param_override_enabled(): bool {
-		return (bool) $this->get( 'enable_param_override' );
 	}
 }
