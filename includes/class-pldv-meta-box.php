@@ -91,7 +91,7 @@ class Meta_Box {
 			$map[ $slug ] = [
 				'default'    => (string) ( $platform['token_param'] ?? '' ),
 				'params'     => $params,
-				'multi'      => ! empty( $platform['multi_param'] ) && count( $params ) > 1,
+				'multi'      => $this->mappings->multi_param_enabled( $slug ),
 				'constraint' => ! empty( $platform['value_constraint']['type'] ) ? str_replace( '_', ' ', $platform['value_constraint']['type'] ) : '',
 				'maxLength'  => ! empty( $platform['max_length'] ) ? (int) $platform['max_length'] : 0,
 				'notes'      => (string) ( $platform['notes'] ?? '' ),
@@ -202,8 +202,7 @@ class Meta_Box {
 		// Per-link parameter override: only touched for software with "Multiple
 		// parameters" enabled, so turning it off hides the control without wiping
 		// saved overrides. Keep the value only if it is one of the allowed params.
-		$platform = '' !== $software ? $this->mappings->get( $software ) : null;
-		if ( $platform && ! empty( $platform['multi_param'] ) ) {
+		if ( '' !== $software && $this->mappings->multi_param_enabled( $software ) ) {
 			$param = isset( $_POST['pldv_param'] ) ? sanitize_text_field( wp_unslash( $_POST['pldv_param'] ) ) : '';
 			if ( '' !== $param && in_array( $param, $this->mappings->params_for( $software ), true ) ) {
 				update_post_meta( $post_id, self::PARAM_META, $param );
